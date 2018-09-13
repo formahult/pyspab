@@ -6,19 +6,33 @@ from pymavlink import mavutil
 import F2414Modem
 from optparse import OptionParser
 
-baseurl = "https://therevproject.com/spab"
 
 task = sched.scheduler(time.time, time.sleep)
 loggingPeriod = 30 # seconds
-modem = None
+commandPeriod = 60
+timeOffset    = 0 # avoid having task overlap in time
 
-def remote_telemetry():
-    """Send data to the logging server and retrieve commands"""
-    task.enter(loggingPeriod, 1, remote_telemetry, ())
-    modem.send("GET http://therevproject.com/\r\n\r\n")
+modem = None
+Locations = {}
+
+def remoteTelemetry():
+    task.enter(loggingPeriod, 1, remoteTelemetry, ())
+    body = json.dumps(Locations)
+    length = len(body)
+    req = "POST http://therevproject.com/spab/data\r\nContent-Type:application/json\r\nContent-Length:" + str(length) + "\n\n" + body + "\r\n\r\n"
+    print(req)
+    modem.send(req)
+
+
+def requestCommands():
+    task.enter(commandPeriod, 1, requestCommands, ())
+    req = "GET http://therevproject.com/spab/command\r\n\r\n"
+    print(str(req))
+    modem.send(req)
 
 def onModemDataReceived(sender, earg):
     print(str(earg))
+    # do something with them
     pass
 
 def handle_heartbeat(msg):
@@ -41,6 +55,7 @@ def handle_attitude(msg):
 
 def handle_gps_raw(msg):
     gps_data = (msg.time_usec, float(msg.lat)/(10**7), float(msg.lon)/(10**7), msg.alt, msg.eph, msg.epv, msg.vel, msg.cog, msg.fix_type, msg.satellites_visible)
+    Locations.update(zip(('timestamp','latitude','longitude','temperature','salinity'),gps_data[0:3]+(0,0)))
     #print("Time\t\tLat\t\tLon")
     #print("%i\t%f\t%f" % gps_data[0:3])
 
@@ -94,7 +109,8 @@ def main():
     master.wait_heartbeat()
     master.mav.request_data_stream_send(master.target_system, master.target_component, mavutil.mavlink.MAV_DATA_STREAM_ALL, opts.rate, 1)
 
-    task.enter(loggingPeriod, 1, remote_telemetry, ())
+    task.enter(loggingPeriod, 1, remoteTelemetry, ())
+    task.enter(commandPeriod + timeOffset, 1, requestCommands, ())
 
     read_loop(master)
 
