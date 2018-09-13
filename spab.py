@@ -9,14 +9,14 @@ from optparse import OptionParser
 
 task = sched.scheduler(time.time, time.sleep)
 loggingPeriod = 30 # seconds
-commandPeriod = 60
+commandPeriod = 30
 timeOffset    = 0 # avoid having task overlap in time
 
 modem = None
 Locations = {}
 
 def remoteTelemetry():
-    task.enter(loggingPeriod, 1, remoteTelemetry, ())
+    task.enter(loggingPeriod, 1, requestCommands, ())
     body = json.dumps(Locations)
     length = len(body)
     req = "POST http://therevproject.com/spab/data\r\nContent-Type:application/json\r\nContent-Length:" + str(length) + "\n\n" + body + "\r\n\r\n"
@@ -27,13 +27,14 @@ def remoteTelemetry():
 def requestCommands():
     task.enter(commandPeriod, 1, requestCommands, ())
     req = "GET http://therevproject.com/spab/command\r\n\r\n"
-    print(str(req))
+    print(req)
     modem.send(req)
 
 def onModemDataReceived(sender, earg):
-    print(str(earg))
-    # do something with them
-    pass
+    s = earg.decode("utf-8")
+    print(s)
+    commands = json.loads(s)
+    
 
 def handle_heartbeat(msg):
     mode = mavutil.mode_string_v10(msg)
@@ -109,8 +110,7 @@ def main():
     master.wait_heartbeat()
     master.mav.request_data_stream_send(master.target_system, master.target_component, mavutil.mavlink.MAV_DATA_STREAM_ALL, opts.rate, 1)
 
-    task.enter(loggingPeriod, 1, remoteTelemetry, ())
-    task.enter(commandPeriod + timeOffset, 1, requestCommands, ())
+    task.enter(loggingPeriod, 1, requestCommands, ())
 
     read_loop(master)
 
