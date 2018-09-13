@@ -7,27 +7,28 @@ class F2414Modem:
 
     def send(self, data):
         self.sport.write(b'don')
-        time.sleep(2)
-        self.sport.write(data)
-        return self.sport.read(4096)
+        time.sleep(1)
+        self.sport.write(bytearray(data, encoding='utf-8'))
 
     def subscribe(self, handler):
+        """ Subscribe to dataReceived with F2414Modem += eventHandler """
         self.handlers.append(handler)
         return self
 
     def unsubscribe(self, handler):
+        """ Unsubscribe to dataReceived with F2414Modem -= eventHandler """
         self.handlers.remove(handler)
         return self
 
-    def fire(self, sender, earg=None):
+    def __DataReceived(self, sender, earg=None):
         for handler in self.handlers:
             handler(sender, earg)
 
-    def monitor(self):
+    def __monitor(self):
        while not self.die:
            data = self.sport.read(self.blocksize)
            if data is not b'':
-               self.fire(data)
+               self.__DataReceived(self, earg=data)
 
     def __init__(self, port, baudrate):
         ser = serial.Serial(port)
@@ -37,7 +38,7 @@ class F2414Modem:
         ser.timeout = 0.5
         self.sport = ser
         self.handlers = []
-        self.thread = threading.Thread(group=None, target=self.monitor, name='mon', args=())
+        self.thread = threading.Thread(group=None, target=self.__monitor, name='mon', args=())
         self.thread.start()
 
     def __del__(self):
@@ -46,4 +47,4 @@ class F2414Modem:
 
     __iadd__ = subscribe
     __isub__ = unsubscribe
-    __call__ = fire
+    __call__ = __DataReceived

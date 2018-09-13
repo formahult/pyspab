@@ -1,6 +1,6 @@
 #!/bin/python3
 import sys, signal, os
-import requests, json #for API
+import json #for API
 import sched, time
 from pymavlink import mavutil
 import F2414Modem
@@ -10,14 +10,15 @@ baseurl = "https://therevproject.com/spab"
 
 task = sched.scheduler(time.time, time.sleep)
 loggingPeriod = 30 # seconds
+modem = None
 
 def remote_telemetry():
     """Send data to the logging server and retrieve commands"""
     task.enter(loggingPeriod, 1, remote_telemetry, ())
-    modem.send("blah")
+    modem.send("GET http://therevproject.com/\r\n\r\n")
 
 def onModemDataReceived(sender, earg):
-    print("fired")
+    print(str(earg))
     pass
 
 def handle_heartbeat(msg):
@@ -30,18 +31,18 @@ def handle_rc_raw(msg):
 
 def handle_hud(msg):
     hud_data = (msg.airspeed, msg.groundspeed, msg.heading, msg.throttle, msg.alt, msg.climb)
-    print("Aspd\tGspd\tHead\tThro\tAlt\tClimb")
-    print("%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t" % hud_data)
+    #print("Aspd\tGspd\tHead\tThro\tAlt\tClimb")
+    #print("%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t" % hud_data)
 
 def handle_attitude(msg):
     attitude_data = (msg.roll, msg.pitch, msg.yaw, msg.rollspeed, msg.pitchspeed, msg.yawspeed)
-    print("Roll\tPit\tYaw\tRSpd\tPSpd\tYSpd")
-    print("%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t" % attitude_data)
+    #print("Roll\tPit\tYaw\tRSpd\tPSpd\tYSpd")
+    #print("%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t" % attitude_data)
 
 def handle_gps_raw(msg):
     gps_data = (msg.time_usec, float(msg.lat)/(10**7), float(msg.lon)/(10**7), msg.alt, msg.eph, msg.epv, msg.vel, msg.cog, msg.fix_type, msg.satellites_visible)
-    print("Time\t\tLat\t\tLon")
-    print("%i\t%f\t%f" % gps_data[0:3])
+    #print("Time\t\tLat\t\tLon")
+    #print("%i\t%f\t%f" % gps_data[0:3])
 
 def read_loop(m):
     while(True):
@@ -67,6 +68,7 @@ def read_loop(m):
             handle_gps_raw(msg)
 
 def catch(sig, frame):
+    print("\r")
     os._exit(0)
 
 def main():
@@ -84,6 +86,7 @@ def main():
 
     signal.signal(signal.SIGINT, catch)
 
+    global modem
     modem = F2414Modem.F2414Modem(opts.mport, opts.baudrate)
     modem += onModemDataReceived
 
