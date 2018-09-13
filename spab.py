@@ -1,20 +1,24 @@
 #!/bin/python3
-import sys
+import sys, signal, os
 import requests, json #for API
 import sched, time
 from pymavlink import mavutil
-import F2414Modem as Modem
+import F2414Modem
 from optparse import OptionParser
 
 baseurl = "https://therevproject.com/spab"
 
 task = sched.scheduler(time.time, time.sleep)
-loggingPeriod = 10 # seconds
+loggingPeriod = 30 # seconds
 
 def remote_telemetry():
     """Send data to the logging server and retrieve commands"""
-    print("Pretending to send telemetry")
     task.enter(loggingPeriod, 1, remote_telemetry, ())
+    modem.send("blah")
+
+def onModemDataReceived(sender, earg):
+    print("fired")
+    pass
 
 def handle_heartbeat(msg):
     mode = mavutil.mode_string_v10(msg)
@@ -62,17 +66,27 @@ def read_loop(m):
         elif msg_type == "GPS_RAW_INT":
             handle_gps_raw(msg)
 
+def catch(sig, frame):
+    os._exit(0)
+
 def main():
     parser = OptionParser("spab.py [options]")
     parser.add_option("--baudrate", dest="baudrate", type='int', help='master port baud rate', default=57600)
     parser.add_option("--device", dest="device", default=None, help="serial device")
+    parser.add_option("--modem", dest="mport", default=None, help="modem serial port")
     parser.add_option("--rate", dest="rate", default=4, type='int', help='requested stream rate')
     parser.add_option("--source-system", dest="SOURCE_SYSTEM", type='int', default=255, help="MAVLink source system for this GCS")
     parser.add_option("--showmessages", dest="showmessages", action='store_true', help="show incoming messages", default=False)
     (opts, args) = parser.parse_args()
-    if opts.device is None:
+    if opts.device is None or opts.mport is None:
         print("You must specify a serial device")
         sys.exit(1)
+
+    signal.signal(signal.SIGINT, catch)
+
+    modem = F2414Modem.F2414Modem(opts.mport, opts.baudrate)
+    modem += onModemDataReceived
+
     master = mavutil.mavlink_connection(opts.device, baud=opts.baudrate)
     master.wait_heartbeat()
     master.mav.request_data_stream_send(master.target_system, master.target_component, mavutil.mavlink.MAV_DATA_STREAM_ALL, opts.rate, 1)
