@@ -84,6 +84,7 @@ def handle_gps_raw(msg):
     #print("Time\t\tLat\t\tLon")
     #print("%i\t%f\t%f" % gps_data[0:3])
 
+# TODO loop runs pretty quick and chews resources? Consider slowing it down with sleep()
 def read_loop(m):
     while(True):
         task.run(blocking=False)
