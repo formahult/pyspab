@@ -5,36 +5,60 @@ import sched, time
 from pymavlink import mavutil
 import F2414Modem
 from optparse import OptionParser
+import collections
 
 
 task = sched.scheduler(time.time, time.sleep)
-loggingPeriod = 30 # seconds
-commandPeriod = 30
-timeOffset    = 0 # avoid having task overlap in time
+telemPeriod = 60 # seconds
 
 modem = None
-Locations = {}
+Locations = collections.deque(maxlen=10) #circular buffer to limit memory use
 
 def remoteTelemetry():
-    task.enter(loggingPeriod, 1, requestCommands, ())
-    body = json.dumps(Locations)
+    task.enter(telemPeriod, 1, requestCommands, ())
+    body = json.dumps(list(Locations))
     length = len(body)
-    req = "POST http://therevproject.com/spab/data\r\nContent-Type:application/json\r\nContent-Length:" + str(length) + "\n\n" + body + "\r\n\r\n"
+    req = """POST /spab/data.cgi HTTP/1.1
+Host: therevproject.com
+Accept: */*
+Connection: close
+content-type: application/json
+Content-Length: """
+    req += str(length) + "\n\n"
+    req += body + "\r\n\r\n"
     print(req)
+    global modem
+    modem += HandleTelemetryConfirmation
     modem.send(req)
 
 
 def requestCommands():
-    task.enter(commandPeriod, 1, requestCommands, ())
+    """Requests new commands JSON from control server and registers a callback handler"""
+    task.enter(telemPeriod, 1, remoteTelemetry, ()) # schedule alternating tasks
     req = "GET http://therevproject.com/spab/command\r\n\r\n"
+    global modem
+    modem += HandleCommandReceived
     print(req)
     modem.send(req)
 
-def onModemDataReceived(sender, earg):
+def HandleCommandReceived(sender, earg):
     s = earg.decode("utf-8")
     print(s)
-    commands = json.loads(s)
-    
+    try:
+        commands = json.loads(s)
+    except:
+        print("Couldn't decode")
+    global modem
+    modem -= HandleCommandReceived
+
+def HandleTelemetryConfirmation(sender, earg):
+    s = earg.decode("utf-8")
+    # TODO properly parse http?
+    lines = s.splitlines() # discard http junk
+    print(lines[0])
+    global modem
+    modem -= HandleTelemetryConfirmation
+
 
 def handle_heartbeat(msg):
     mode = mavutil.mode_string_v10(msg)
@@ -56,7 +80,7 @@ def handle_attitude(msg):
 
 def handle_gps_raw(msg):
     gps_data = (msg.time_usec, float(msg.lat)/(10**7), float(msg.lon)/(10**7), msg.alt, msg.eph, msg.epv, msg.vel, msg.cog, msg.fix_type, msg.satellites_visible)
-    Locations.update(zip(('timestamp','latitude','longitude','temperature','salinity'),gps_data[0:3]+(0,0)))
+    Locations.append(dict(zip(('timestamp','latitude','longitude','temperature','salinity'),gps_data[0:3]+(0,0))))
     #print("Time\t\tLat\t\tLon")
     #print("%i\t%f\t%f" % gps_data[0:3])
 
@@ -97,20 +121,20 @@ def main():
     parser.add_option("--showmessages", dest="showmessages", action='store_true', help="show incoming messages", default=False)
     (opts, args) = parser.parse_args()
     if opts.device is None or opts.mport is None:
-        print("You must specify a serial device")
+        print("You must specify a mavlink device and a modem device")
         sys.exit(1)
 
     signal.signal(signal.SIGINT, catch)
 
     global modem
     modem = F2414Modem.F2414Modem(opts.mport, opts.baudrate)
-    modem += onModemDataReceived
+    modem += HandleTelemetryConfirmation
 
     master = mavutil.mavlink_connection(opts.device, baud=opts.baudrate)
     master.wait_heartbeat()
     master.mav.request_data_stream_send(master.target_system, master.target_component, mavutil.mavlink.MAV_DATA_STREAM_ALL, opts.rate, 1)
 
-    task.enter(loggingPeriod, 1, requestCommands, ())
+    task.enter(telemPeriod, 1, remoteTelemetry, ())
 
     read_loop(master)
 
