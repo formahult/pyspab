@@ -36,7 +36,6 @@ def requestCommands():
     modem.send(req)
 
 def HandleCommand(cmdList):
-    print("got command")
     for elem in cmdList[1:]:
         print(elem["action"])
 
