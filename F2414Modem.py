@@ -35,7 +35,7 @@ class F2414Modem:
         self.die = False
         self.blocksize = 1024
         ser.baudrate = baudrate
-        ser.timeout = 0.5
+        ser.timeout = 1
         self.sport = ser
         self.handlers = []
         self.thread = threading.Thread(group=None, target=self.__monitor, name='mon', args=())

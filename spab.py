@@ -26,9 +26,6 @@ content-type: application/json
 Content-Length: """
     req += str(length) + "\n\n"
     req += body + "\r\n\r\n"
-    print(req)
-    global modem
-    modem += HandleTelemetryConfirmation
     modem.send(req)
 
 
@@ -36,28 +33,31 @@ def requestCommands():
     """Requests new commands JSON from control server and registers a callback handler"""
     task.enter(telemPeriod, 1, remoteTelemetry, ()) # schedule alternating tasks
     req = "GET http://therevproject.com/spab/command\r\n\r\n"
-    global modem
-    modem += HandleCommandReceived
-    print(req)
     modem.send(req)
 
-def HandleCommandReceived(sender, earg):
-    s = earg.decode("utf-8")
-    print(s)
-    try:
-        commands = json.loads(s)
-    except:
-        print("Couldn't decode")
-    global modem
-    modem -= HandleCommandReceived
+def HandleCommand(cmdList):
+    print("got command")
+    for elem in cmdList[1:]:
+        print(elem["action"])
 
-def HandleTelemetryConfirmation(sender, earg):
+def HandleTelemAck(json):
+    print(json[1]["message"])
+
+def HandleReceipt(sender, earg):
     s = earg.decode("utf-8")
-    # TODO properly parse http?
-    lines = s.splitlines() # discard http junk
-    print(lines[0])
-    global modem
-    modem -= HandleTelemetryConfirmation
+    # deal with http headers
+    lines = s.splitlines()
+    if(lines[0] == "HTTP/1.1 200 OK"):
+        s = lines[10]
+    # deal with json
+    try:
+        data = json.loads(s)
+        if(data[0]["type"]=="telemAck"):
+            HandleTelemAck(data)
+        elif(data[0]["type"]=="command"):
+            HandleCommand(data)
+    except Exception as e:
+        print(str(e))
 
 
 def handle_heartbeat(msg):
@@ -107,6 +107,7 @@ def read_loop(m):
             handle_attitude(msg)
         elif msg_type == "GPS_RAW_INT":
             handle_gps_raw(msg)
+        time.sleep(0.05)
 
 def catch(sig, frame):
     print("\r")
@@ -129,7 +130,7 @@ def main():
 
     global modem
     modem = F2414Modem.F2414Modem(opts.mport, opts.baudrate)
-    modem += HandleTelemetryConfirmation
+    modem += HandleReceipt
 
     master = mavutil.mavlink_connection(opts.device, baud=opts.baudrate)
     master.wait_heartbeat()
