@@ -13,6 +13,7 @@ telemPeriod = 60 # seconds
 
 modem = None
 Locations = collections.deque(maxlen=10) #circular buffer to limit memory use
+Waypoints = collections.deque(maxlen=10) # same
 
 def remoteTelemetry():
     task.enter(telemPeriod, 1, requestCommands, ())
@@ -51,6 +52,7 @@ def HandleCommandReceived(sender, earg):
     global modem
     modem -= HandleCommandReceived
 
+
 def HandleTelemetryConfirmation(sender, earg):
     s = earg.decode("utf-8")
     # TODO properly parse http?
@@ -65,18 +67,22 @@ def handle_heartbeat(msg):
     is_armed = msg.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED
     is_enabled = msg.base_mode & mavutil.mavlink.MAV_MODE_FLAG_GUIDED_ENABLED
 
+
 def handle_rc_raw(msg):
     channels = (msg.chan1_raw, msg.chan2_raw, msg.chan3_raw, msg.chan4_raw, msg.chan5_raw, msg.chan6_raw, msg.chan7_raw, msg.chan8_raw)
+
 
 def handle_hud(msg):
     hud_data = (msg.airspeed, msg.groundspeed, msg.heading, msg.throttle, msg.alt, msg.climb)
     #print("Aspd\tGspd\tHead\tThro\tAlt\tClimb")
     #print("%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t" % hud_data)
 
+
 def handle_attitude(msg):
     attitude_data = (msg.roll, msg.pitch, msg.yaw, msg.rollspeed, msg.pitchspeed, msg.yawspeed)
     #print("Roll\tPit\tYaw\tRSpd\tPSpd\tYSpd")
     #print("%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t" % attitude_data)
+
 
 def handle_gps_raw(msg):
     gps_data = (msg.time_usec, float(msg.lat)/(10**7), float(msg.lon)/(10**7), msg.alt, msg.eph, msg.epv, msg.vel, msg.cog, msg.fix_type, msg.satellites_visible)
@@ -84,11 +90,52 @@ def handle_gps_raw(msg):
     #print("Time\t\tLat\t\tLon")
     #print("%i\t%f\t%f" % gps_data[0:3])
 
+
+#I think we should use this instead of GPS_RAW
+def handle_gps_filtered(msg):
+    gps_data = (msg.time_boot_ms, float(msg.lat)/10**7, float(msg.lon)/(10**7), msg.alt, msg.relative_alt, msg.vx, msg.vs, msg.vz, msg.hdg)
+    Locations.append(dict(zip(('timestamp', 'latitude', 'longitude', 'temperature', 'salinity'), gps_data[0:3]+(0, 0))))
+
+
+# Intended to receive a single requested message of known type
+# TODO add timeout to function
+def get_req_message(master, req_type):
+    while(True): #not sure if we need a loop when looking for a specific requested message
+        task.run(blocking=False)
+        msg = master.recv_match(blocking=False)
+        if not msg:
+            continue
+        msg_type = msg.get_type()
+        if msg_type == req_type:
+            return msg
+
+
+# TODO need to write code to store waypoints read from the modem into Waypoints queue
+# TODO need to loop over Waypoints, popping entries until Wapoints is empty
+def append_waypoints(master, waypoint_count, hold_time, acceptance_radius, pass_radius):
+    master.mav.mission_count_send(master.target_system, master.target_component, waypoint_count)
+
+    # while Waypoints !Empty
+    msg = get_req_message(master, "MISSION_REQUEST_INT")
+    seq = msg.seq
+    waypoint = Waypoints.pop()
+    master.mav.mission_item_int_send(master.target_system, master.target_component, seq, "MAV_FRAME_GLOBAL_INT",
+                                     "MAV_CMD_NAV_WAYPOINT", 0, 1, hold_time, acceptance_radius, pass_radius,
+                                     float('nan'), waypoint.lat, waypoint.lng, waypoint.alt)
+    # end while
+    ack = get_req_message("MISSION_ACK")
+    if ack.type == "MAV_MISSION_ACCEPTED":
+        return True
+    else:
+        print("MAV_MISSION_ERROR")
+        return False
+
+
 # TODO loop runs pretty quick and chews resources? Consider slowing it down with sleep()
 def read_loop(m):
     while(True):
         task.run(blocking=False)
-        msg=m.recv_match(blocking=False)
+        msg = m.recv_match(blocking=False)
         if not msg:
             continue
         msg_type = msg.get_type()
@@ -107,10 +154,14 @@ def read_loop(m):
             handle_attitude(msg)
         elif msg_type == "GPS_RAW_INT":
             handle_gps_raw(msg)
+        elif msg_type == "GLOBAL_POSITION_INT":
+            handle_gps_filtered(msg)
+
 
 def catch(sig, frame):
     print("\r")
     os._exit(0)
+
 
 def main():
     parser = OptionParser("spab.py [options]")
