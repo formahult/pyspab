@@ -1,3 +1,6 @@
 # Ignore precompiled python files
 __pycache__/*
 *.py[cod]
+
+#Ignore PyCharm IDE files
+.idea/*
