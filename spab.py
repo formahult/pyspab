@@ -155,6 +155,7 @@ def read_loop(m):
             handle_gps_raw(msg)
         elif msg_type == "GLOBAL_POSITION_INT":
             handle_gps_filtered(msg)
+        time.sleep(0.05)
 
 
 def catch(sig, frame):
