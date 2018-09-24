@@ -9,11 +9,12 @@ import collections
 
 
 task = sched.scheduler(time.time, time.sleep)
-telemPeriod = 60   # seconds
+telemPeriod = 30   # seconds
 
 modem = None
 master = None
 Locations = collections.deque(maxlen=10)    # circular buffer to limit memory use
+AcceptedCommands = collections.deque(maxlen=10)
 Waypoints = []    # waypoint[0] = lat, waypoint[1] = lng, waypoint[2] = alt
 stat = None
 
@@ -41,22 +42,28 @@ def requestCommands():
     modem.send(req)
     task.enter(telemPeriod, 1, requestCommands, ())     # schedule alternating tasks
 
+def missionSender():
+    if Waypoints:
+        start_waypoint_send(len(Waypoints))
+    task.enter(5, 1, missionSender, ())
+
+
+
 
 def HandleCommand(cmdList):
     print('handling commands')
     print(cmdList)
-    waypoint = [0, 0, 0]    # Should be initialised to impossible numbers
-    for elem in cmdList[1:]:
+    for elem in cmdList:
+        if(elem["taskId"] in AcceptedCommands):
+            continue
         print(elem["action"])
-        print(type(elem["latitude"]))
-        waypoint[0] = (float(elem["latitude"]))*10**7
-        waypoint[1] = (float(elem["longitude"]))*10**7
-        waypoint[2] = 0
-        print(waypoint)
-        Waypoints.append(waypoint)
+        AcceptedCommands.append(elem["taskId"])
+        # append new tuple (lat, long, alt)
+        Waypoints.append( ( float(elem["latitude"]), float(elem["longitude"]) , 0 ) )
     print(Waypoints)
-    start_waypoint_send(len(Waypoints))
+    #start_waypoint_send(len(Waypoints))
     #append_waypoints(master, len(Waypoints), 0, 15, 0)
+    #append_waypoint(1, 0.0, 15.0, 0)
 
 
 def fake_waypoint():
@@ -82,10 +89,10 @@ def HandleReceipt(sender, earg):
         data = json.loads(s)
         if(data[0]["type"]=="telemAck"):
             print("received telemAck")
-            HandleTelemAck(data)
+            HandleTelemAck(data[1:])
         elif(data[0]["type"]=="command"):
             print("received command")
-            HandleCommand(data)
+            HandleCommand(data[1:])
     except Exception as e:
         print(str(e))
 
@@ -121,8 +128,10 @@ def handle_gps_filtered(msg):
 
 def handle_mission_request(msg):
     print(msg)
-    append_waypoint(msg.seq, 0, 0, 0)
+    append_waypoint(msg.seq, 0.0, 15.0, 0)
 
+def handle_mission_request_list(msg):
+    start_waypoint_send(len(Waypoints))
 
 def handle_mission_ack(msg):
     print(msg)
@@ -135,25 +144,27 @@ def handle_mission_ack(msg):
 def start_waypoint_send(waypoint_count):
     global stat
     print("start_waypoint_send")
-    print(master.target_system, master.target_component, waypoint_count)
+    print(master.target_system, mavutil.mavlink.MAV_COMP_ID_MISSIONPLANNER, waypoint_count)
     #time.sleep(1)
     #while not stat:
     #    master.mav.mission_count_send(master.target_system, master.target_component, waypoint_count)
     #    read_loop(master)
-    master.mav.mission_count_send(master.target_system, master.target_component, waypoint_count)
+    master.mav.mission_count_send(master.target_system, mavutil.mavlink.MAV_COMP_ID_MISSIONPLANNER, len(Waypoints))
 
 
 def append_waypoint(seq, hold_time, acceptance_radius, pass_radius):
     print("appending waypoints")
     print(seq)
-    if 0 <= seq < len(Waypoints):
-        waypoint = Waypoints[seq]
+    while Waypoints:
+        waypoint = Waypoints.pop()
         print(waypoint)
-        master.mav.mission_item_int_send(master.target_system, master.target_component, seq, 5,
-                                         16, 0, 1, hold_time, acceptance_radius, pass_radius,
-                                         float('nan'), int(waypoint[0]), int(waypoint[1]), int(waypoint[2]))
-    else:
-        print("No more Waypoints remaining")
+        master.mav.mission_item_send(master.target_system,
+                                     mavutil.mavlink.MAV_COMP_ID_MISSIONPLANNER,
+                                    seq,
+                                    mavutil.mavlink.MAV_FRAME_GLOBAL,
+                                    mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 1,
+                                    hold_time, acceptance_radius, pass_radius,
+                                    0, waypoint[0], waypoint[1], waypoint[2])
 
 
 
@@ -190,9 +201,11 @@ def read_loop(m):
         msg_type = msg.get_type()
         #print(msg_type)
         if msg_type == "BAD_DATA":
-            if mavutil.all_printable(msg.data):
-                sys.stdout.write(msg.data)
-                sys.stdout.flush()
+            pass
+        #    if mavutil.all_printable(msg.data):
+        #        sys.stderr.write("bad data")
+        #        sys.stderr.write(msg.data)
+        #        sys.stderr.flush()
         elif msg_type == "RC_CHANNELS_RAW":
             handle_rc_raw(msg)
         elif msg_type == "HEARTBEAT":
@@ -203,12 +216,18 @@ def read_loop(m):
             handle_attitude(msg)
         elif msg_type == "GLOBAL_POSITION_INT":
             handle_gps_filtered(msg)
+        elif msg_type == "MISSION_REQUEST":
+            stat = True
+            print("MISSION_REQUEST")
+            handle_mission_request(msg)
         elif msg_type == "MISSION_REQUEST_INT":
             stat = True
-            print("MISSION_REQUEST_INT")
+            print("MISSION_REQUEST")
             handle_mission_request(msg)
-        elif(msg_type == "MISSION_REQUEST"):
-            handle_mission_request(msg)
+        elif msg_type == "MISSION_REQUEST_LIST":
+            stat = True
+            print("MISSION_REQUEST_LIST")
+            handle_mission_request_list(msg)
         elif msg_type == "MISSION_ACK":
             handle_mission_ack(msg)
         time.sleep(0.05)
@@ -248,6 +267,8 @@ def main():
     master.mav.set_mode_send(master.target_system, 216, 216)
 
     task.enter(telemPeriod, 1, requestCommands, ())
+    task.enter(5, 1, missionSender, ())
+    #task.enter(telemPeriod, 1, remoteTelemetry, ())
     task.run(False)
 
     read_loop(master)
