@@ -20,8 +20,6 @@ stat = None
 
 def remoteTelemetry():
     print('remote telemetry')
-    task.enter(telemPeriod, 1, requestCommands, ())
-
     body = json.dumps(list(Locations))
     length = len(body)
     req = """POST /spab/data.cgi HTTP/1.1
@@ -33,14 +31,15 @@ Content-Length: """
     req += str(length) + "\n\n"
     req += body + "\r\n\r\n"
     modem.send(req)
+    task.enter(telemPeriod, 1, remoteTelemetry, ())
 
 
 def requestCommands():
     print('request commands')
     """Requests new commands JSON from control server and registers a callback handler"""
-    task.enter(telemPeriod, 1, requestCommands, ())     # schedule alternating tasks
     req = "GET http://therevproject.com/spab/command\r\n\r\n"
     modem.send(req)
+    task.enter(telemPeriod, 1, requestCommands, ())     # schedule alternating tasks
 
 
 def HandleCommand(cmdList):
@@ -181,7 +180,6 @@ def append_waypoint(seq, hold_time, acceptance_radius, pass_radius):
         return False
 '''
 
-# TODO loop runs pretty quick and chews resources? Consider slowing it down with sleep()
 def read_loop(m):
     global stat
     while True:
@@ -198,12 +196,10 @@ def read_loop(m):
         elif msg_type == "RC_CHANNELS_RAW":
             handle_rc_raw(msg)
         elif msg_type == "HEARTBEAT":
-            #print(msg_type)
             handle_heartbeat(msg)
         elif msg_type == "VFR_HUD":
             handle_hud(msg)
         elif msg_type == "ATTITUDE":
-            #print(msg_type)
             handle_attitude(msg)
         elif msg_type == "GLOBAL_POSITION_INT":
             handle_gps_filtered(msg)
@@ -243,7 +239,7 @@ def main():
 
     global modem
     modem = F2414Modem.F2414Modem(opts.mport, opts.baudrate)
-    modem += HandleTelemetryConfirmation
+    modem += HandleReceipt
 
     global master
     master = mavutil.mavlink_connection(opts.device, baud=opts.baudrate)
