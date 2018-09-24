@@ -44,7 +44,7 @@ def HandleTelemAck(json):
     print(json[1]["message"])
 
 
-def HandleTelemetryConfirmation(sender, earg):
+def HandleReceipt(sender, earg):
     s = earg.decode("utf-8")
     # deal with http headers
     lines = s.splitlines()
@@ -83,16 +83,9 @@ def handle_attitude(msg):
     #print("%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t" % attitude_data)
 
 
-def handle_gps_raw(msg):
-    gps_data = (msg.time_usec, float(msg.lat)/(10**7), float(msg.lon)/(10**7), msg.alt, msg.eph, msg.epv, msg.vel, msg.cog, msg.fix_type, msg.satellites_visible)
-    Locations.append(dict(zip(('timestamp','latitude','longitude','temperature','salinity'),gps_data[0:3]+(0,0))))
-    #print("Time\t\tLat\t\tLon")
-    #print("%i\t%f\t%f" % gps_data[0:3])
-
-
 #I think we should use this instead of GPS_RAW
 def handle_gps_filtered(msg):
-    gps_data = (msg.time_boot_ms, float(msg.lat)/10**7, float(msg.lon)/(10**7), msg.alt, msg.relative_alt, msg.vx, msg.vs, msg.vz, msg.hdg)
+    gps_data = (msg.time_boot_ms, float(msg.lat)/10**7, float(msg.lon)/(10**7), msg.alt, msg.relative_alt, msg.vx, msg.vz, msg.hdg)
     Locations.append(dict(zip(('timestamp', 'latitude', 'longitude', 'temperature', 'salinity'), gps_data[0:3]+(0, 0))))
 
 
@@ -113,7 +106,6 @@ def get_req_message(master, req_type):
 # TODO need to loop over Waypoints, popping entries until Wapoints is empty
 def append_waypoints(master, waypoint_count, hold_time, acceptance_radius, pass_radius):
     master.mav.mission_count_send(master.target_system, master.target_component, waypoint_count)
-
     # while Waypoints !Empty
     msg = get_req_message(master, "MISSION_REQUEST_INT")
     seq = msg.seq
@@ -151,8 +143,6 @@ def read_loop(m):
             handle_hud(msg)
         elif msg_type == "ATTITUDE":
             handle_attitude(msg)
-        elif msg_type == "GPS_RAW_INT":
-            handle_gps_raw(msg)
         elif msg_type == "GLOBAL_POSITION_INT":
             handle_gps_filtered(msg)
         time.sleep(0.05)
