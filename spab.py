@@ -19,13 +19,8 @@ stat = None
 Locations = collections.deque(maxlen=10)    # circular buffer to limit memory use
 Waypoints = []
 Delegates = {}
-
-def fake_waypoint():
-    waypoint = [-30.1505*10**7, 116.8705*10**7, 0]
-    Waypoints.append(waypoint)
-    print(Waypoints)
-    task.enter(telemPeriod, 1, fake_waypoint, ())
-    start_waypoint_send(len(Waypoints))
+Seq = 0
+Count = 0
 
 def handle_bad_data(msg):
     if mavutil.all_printable(msg.data):
@@ -60,51 +55,51 @@ def handle_mission_request(msg):
     append_waypoint(msg.seq, 0.0, 15.0, 0)
 
 def handle_mission_ack(msg):
-    print(msg.type)
+    global Count, Seq
+    print(msg)
     if msg.type != mavutil.mavlink.MAV_MISSION_ACCEPTED:
         print("mission upload failed")
     else:
         print("mission upload success")
+        Waypoints.clear()
+        Count = 0
+        Seq = 0
+
+def handle_mission_count(msg):
+    global Count, Seq
+    Count = msg.count
+    Seq = 0
+    print(str(Count) + " waypoints")
+    master.mav.mission_request_send(master.target_system,
+                                    mavutil.mavlink.MAV_COMP_ID_ALL,
+                                    Seq)
+
+def handle_mission_item(msg):
+    global Count, Seq
+    print("WP " + str(msg.seq) + " " + str(msg.x) + " " + str(msg.y))
+    if(Seq != Count):
+        master.mav.mission_request_send(master.target_system,
+                                    mavutil.mavlink.MAV_COMP_ID_ALL,
+                                    Seq)
+        Seq += 1
+    else:
+        master.mav.mission_ack_send(master.target_system,
+                                    mavutil.mavlink.MAV_COMP_ID_ALL,
+                                    mavutil.mavlink.MAV_MISSION_ACCEPTED)
 
 
 def append_waypoint(seq, hold_time, acceptance_radius, pass_radius):
     print("appending waypoints")
     print(seq)
-    while Waypoints:
-        waypoint = Waypoints.pop()
-        print(waypoint)
-        master.mav.mission_item_send(master.target_system,
-                                     mavutil.mavlink.MAV_COMP_ID_MISSIONPLANNER,
-                                    seq,
-                                    mavutil.mavlink.MAV_FRAME_GLOBAL,
-                                    mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 1,
-                                    hold_time, acceptance_radius, pass_radius,
-                                    0, waypoint[0], waypoint[1], waypoint[2])
-
-
-
-'''def append_waypoints(master, waypoint_count, hold_time, acceptance_radius, pass_radius):
-    print("appending waypoints")
-    master.mav.mission_count_send(master.target_system, master.target_component, waypoint_count)
-    print("entering Waypoints")
-    while Waypoints:
-        print(Waypoints)
-        msg = get_req_message(master, "MISSION_REQUEST_INT")
-        seq = msg.seq
-        waypoint = Waypoints.pop()
-        print(waypoint)
-        master.mav.mission_item_int_send(master.target_system, master.target_component, seq, "MAV_FRAME_GLOBAL_INT",
-                                         "MAV_CMD_NAV_WAYPOINT", 0, 1, hold_time, acceptance_radius, pass_radius,
-                                         float('nan'), waypoint[0], waypoint[1], waypoint[2])
-
-    print("left waypoints")
-    ack = get_req_message("MISSION_ACK")
-    if ack.type == "MAV_MISSION_ACCEPTED":
-        return True
-    else:
-        print("MAV_MISSION_ERROR")
-        return False
-'''
+    waypoint = Waypoints[seq]
+    print(waypoint)
+    master.mav.mission_item_send(master.target_system,
+                                mavutil.mavlink.MAV_COMP_ID_ALL,
+                                seq,
+                                mavutil.mavlink.MAV_FRAME_GLOBAL,
+                                mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 1, 1,
+                                1.0, 15.0, 0.0,
+                                0.0, waypoint[0], waypoint[1], waypoint[2])
 
 def read_loop(m):
     global stat
@@ -117,7 +112,6 @@ def read_loop(m):
         try:
             Delegates[msg_type](msg)
         except KeyError:
-            # do nothing for unregistered msg
             pass
         #time.sleep(0.05)
 
@@ -151,17 +145,18 @@ def main():
     mavlinkManager = MavlinkManager.MavlinkManager(task, Waypoints, telemPeriod, master)
 
     #init delegates
+    global Delegates
     Delegates = {
         "HEARTBEAT":handle_heartbeat,
         "VFR_HUD":handle_hud,
         "ATTITUDE":handle_attitude,
         "GLOBAL_POSITION_INT":handle_gps_filtered,
         "MISSION_REQUEST":handle_mission_request,
-        "MISSION_REQUEST_INT":handle_mission_request,
-        "MISSION_REQUEST_LIST":handle_mission_request,
         "MISSION_ACK":handle_mission_ack,
         "RC_CHANNELS_RAW":handle_rc_raw,
         "BAD_DATA":handle_bad_data,
+        "MISSION_COUNT":handle_mission_count,
+        "MISSION_ITEM":handle_mission_item
     }
 
     global stat

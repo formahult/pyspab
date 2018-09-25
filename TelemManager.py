@@ -30,7 +30,7 @@ class TelemManager:
     def requestCommands(self):
         print('request commands')
         """Requests new commands JSON from control server and registers a callback handler"""
-        req = "GET http://therevproject.com/spab/command\r\n\r\n"
+        req = "GET http://therevproject.com/spab/requestCommands.cgi\r\n\r\n"
         self.modem.send(req)
         self.task.enter(self.PollingPeriod, 1, self.requestCommands, ())     # schedule alternating tasks
 
