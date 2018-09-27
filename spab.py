@@ -10,17 +10,14 @@ from optparse import OptionParser
 import collections
 import TelemManager
 import MavlinkManager
+import SpabModel
 
 
 task = sched.scheduler(time.time, time.sleep)
 telemPeriod = 30   # seconds
-modem = None
-master = None
 Locations = collections.deque(maxlen=10)    # circular buffer to limit memory use
-Waypoints = []
 Delegates = {}
-Seq = 0
-Count = 0
+Waypoints = []
 
 
 def read_loop(m):
@@ -59,12 +56,11 @@ def main():
     signal.signal(signal.SIGINT, catch)
 
     # init objects
-    global modem
-    global master
     master = mavutil.mavlink_connection(opts.device, baud=opts.baudrate)
     modem = F2414Modem.F2414Modem(opts.mport, opts.baudrate)
-    telemManager = TelemManager.TelemManager(task, Locations, Waypoints, modem, telemPeriod)
-    mavlinkManager = MavlinkManager.MavlinkManager(task, Locations, Waypoints, telemPeriod, master)
+    spabModel = SpabModel.SpabModel()
+    telemManager = TelemManager.TelemManager(task, spabModel, modem, telemPeriod)
+    mavlinkManager = MavlinkManager.MavlinkManager(task, spabModel, telemPeriod, master)
 
     # init delegates
     global Delegates

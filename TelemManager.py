@@ -1,22 +1,19 @@
 #!/bin/python3
-import sched
-import time
 import json
 import collections
 
 
 class TelemManager:
-    def __init__(self, Scheduler, LocationBuffer, WaypointBuffer, Modem, TelemPeriod):
+    def __init__(self, Scheduler, model, Modem, TelemPeriod):
         self.task = Scheduler
-        self.Locations = LocationBuffer
-        self.Waypoints = WaypointBuffer
+        self.spabModel = model
         self.modem = Modem
         self.PollingPeriod = TelemPeriod
         self.AcceptedCommands = collections.deque(maxlen=10)
 
     def remoteTelemetry(self):
         print('remote telemetry')
-        body = json.dumps(list(self.Locations))
+        body = json.dumps(list(self.spabModel.LastLocation))
         length = len(body)
         req = """POST /spab/data.cgi HTTP/1.1
     Host: therevproject.com
@@ -27,14 +24,14 @@ class TelemManager:
         req += str(length) + "\n\n"
         req += body + "\r\n\r\n"
         self.modem.send(req)
-        self.task.enter(self.PollingPeriod, 1, self.remoteTelemetry, ())
+        self.task.enter(self.PollingPeriod, 1, self.requestCommands, ())
 
     def requestCommands(self):
         print('request commands')
         """Requests new commands JSON from control server and registers a callback handler"""
         req = "GET http://therevproject.com/spab/requestCommands.cgi\r\n\r\n"
         self.modem.send(req)
-        self.task.enter(self.PollingPeriod, 1, self.requestCommands, ())     # schedule alternating tasks
+        self.task.enter(self.PollingPeriod, 1, self.remoteTelemetry, ())
 
     def HandleTelemAck(self, json):
         print(json[1]["message"])
@@ -47,12 +44,8 @@ class TelemManager:
                 continue
             print(elem["action"])
             self.AcceptedCommands.append(elem["taskId"])
-            # append new tuple (lat, long, alt)
-            self.Waypoints.append((float(elem["latitude"]), float(elem["longitude"]), 0))
-        print(self.Waypoints)
-        # start_waypoint_send(len(Waypoints))
-        # append_waypoints(master, len(Waypoints), 0, 15, 0)
-        # append_waypoint(1, 0.0, 15.0, 0)
+            self.spabModel.pendingWaypoints.append((float(elem["latitude"]), float(elem["longitude"]), 0))
+        print(self.spabModel.Waypoints)
 
     def HandleReceipt(self, sender, earg):
         s = earg.decode("utf-8")
@@ -74,7 +67,6 @@ class TelemManager:
 
     def start(self):
         self.task.enter(self.PollingPeriod, 1, self.requestCommands, ())
-        # self.task.enter(self.PollingPeriod, 1, remoteTelemetry, ())
         self.modem += self.HandleReceipt
 
     def stop(self):
