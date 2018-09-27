@@ -1,7 +1,9 @@
 #!/bin/python3
-import sched, time
+import sched
+import time
 import json
 import collections
+
 
 class TelemManager:
     def __init__(self, Scheduler, LocationBuffer, WaypointBuffer, Modem, TelemPeriod):
@@ -48,9 +50,9 @@ class TelemManager:
             # append new tuple (lat, long, alt)
             self.Waypoints.append((float(elem["latitude"]), float(elem["longitude"]), 0))
         print(self.Waypoints)
-        #start_waypoint_send(len(Waypoints))
-        #append_waypoints(master, len(Waypoints), 0, 15, 0)
-        #append_waypoint(1, 0.0, 15.0, 0)
+        # start_waypoint_send(len(Waypoints))
+        # append_waypoints(master, len(Waypoints), 0, 15, 0)
+        # append_waypoint(1, 0.0, 15.0, 0)
 
     def HandleReceipt(self, sender, earg):
         s = earg.decode("utf-8")
@@ -61,10 +63,10 @@ class TelemManager:
         # deal with json
         try:
             data = json.loads(s)
-            if(data[0]["type"]=="telemAck"):
+            if(data[0]["type"] == "telemAck"):
                 print("received telemAck")
                 self.HandleTelemAck(data[1:])
-            elif(data[0]["type"]=="command"):
+            elif(data[0]["type"] == "command"):
                 print("received command")
                 self.HandleCommand(data[1:])
         except Exception as e:
@@ -72,10 +74,10 @@ class TelemManager:
 
     def start(self):
         self.task.enter(self.PollingPeriod, 1, self.requestCommands, ())
-        #self.task.enter(self.PollingPeriod, 1, remoteTelemetry, ())
+        # self.task.enter(self.PollingPeriod, 1, remoteTelemetry, ())
         self.modem += self.HandleReceipt
 
     def stop(self):
         self.task.cancel(self.requestCommands)
-        #self.task.cancel(self.remoteTelemetry)
+        # self.task.cancel(self.remoteTelemetry)
         self.modem -= self.HandleReceipt
