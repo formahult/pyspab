@@ -14,7 +14,6 @@ telemPeriod = 30   # seconds
 
 modem = None
 master = None
-stat = None
 
 Locations = collections.deque(maxlen=10)    # circular buffer to limit memory use
 Waypoints = []
@@ -54,6 +53,7 @@ def handle_mission_request(msg):
     print(msg)
     append_waypoint(msg.seq, 0.0, 15.0, 0)
 
+
 def handle_mission_ack(msg):
     global Count, Seq
     print(msg)
@@ -65,6 +65,7 @@ def handle_mission_ack(msg):
         Count = 0
         Seq = 0
 
+
 def handle_mission_count(msg):
     global Count, Seq
     Count = msg.count
@@ -73,6 +74,7 @@ def handle_mission_count(msg):
     master.mav.mission_request_send(master.target_system,
                                     mavutil.mavlink.MAV_COMP_ID_ALL,
                                     Seq)
+
 
 def handle_mission_item(msg):
     global Count, Seq
@@ -100,6 +102,7 @@ def append_waypoint(seq, hold_time, acceptance_radius, pass_radius):
                                 mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 1, 1,
                                 1.0, 15.0, 0.0,
                                 0.0, waypoint[0], waypoint[1], waypoint[2])
+
 
 def read_loop(m):
     global stat
@@ -158,9 +161,6 @@ def main():
         "MISSION_COUNT":handle_mission_count,
         "MISSION_ITEM":handle_mission_item
     }
-
-    global stat
-    stat = False
 
     # set to run
     master.wait_heartbeat()

@@ -46,7 +46,7 @@ class TelemManager:
             print(elem["action"])
             self.AcceptedCommands.append(elem["taskId"])
             # append new tuple (lat, long, alt)
-            self.Waypoints.append( ( float(elem["latitude"]), float(elem["longitude"]) , 0 ) )
+            self.Waypoints.append((float(elem["latitude"]), float(elem["longitude"]), 0))
         print(self.Waypoints)
         #start_waypoint_send(len(Waypoints))
         #append_waypoints(master, len(Waypoints), 0, 15, 0)
