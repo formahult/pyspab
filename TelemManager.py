@@ -56,6 +56,7 @@ class TelemManager:
         # deal with json
         try:
             data = json.loads(s)
+            print(str(data))
             if(data[0]["type"] == "telemAck"):
                 print("received telemAck")
                 self.HandleTelemAck(data[1:])

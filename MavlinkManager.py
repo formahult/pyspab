@@ -68,7 +68,6 @@ class MavlinkManager:
             print("mission upload failed")
         else:
             print("mission upload success")
-            self.spabModel.Waypoints = self.spabModel.pendingWaypoints
             self.spabModel.pendingWaypoints.clear()
             self.Count = 0
             self.Seq = 0
