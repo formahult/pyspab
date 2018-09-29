@@ -20,7 +20,7 @@ class MavlinkManager:
     def start_waypoint_send(self, waypoint_count):
         print("start_waypoint_send")
         print(self.master.target_system, mavutil.mavlink.MAV_COMP_ID_MISSIONPLANNER, waypoint_count)
-        self.master.mav.mission_count_send(self.master.target_system, mavutil.mavlink.MAV_COMP_ID_MISSIONPLANNER, len(self.spabModel.Waypoints))
+        self.master.mav.mission_count_send(self.master.target_system, mavutil.mavlink.MAV_COMP_ID_MISSIONPLANNER, len(self.spabModel.pendingWaypoints))
 
     def getWaypoints(self):
         self.master.mav.mission_request_list_send(self.master.target_system, mavutil.mavlink.MAV_COMP_ID_MISSIONPLANNER)

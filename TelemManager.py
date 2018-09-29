@@ -44,7 +44,7 @@ class TelemManager:
                 continue
             print(elem["action"])
             self.AcceptedCommands.append(elem["taskId"])
-            self.spabModel.pendingWaypoints.append((float(elem["latitude"]), float(elem["longitude"]), 0))
+            self.spabModel.pendingWaypoints.append((float(elem["latitude"]), float(elem["longitude"])))
         print(self.spabModel.Waypoints)
 
     def HandleReceipt(self, sender, earg):
