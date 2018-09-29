@@ -20,7 +20,7 @@ class MavlinkManager:
     def start_waypoint_send(self, waypoint_count):
         print("start_waypoint_send")
         print(self.master.target_system, mavutil.mavlink.MAV_COMP_ID_MISSIONPLANNER, waypoint_count)
-        self.master.mav.mission_count_send(self.master.target_system, mavutil.mavlink.MAV_COMP_ID_MISSIONPLANNER, len(self.spabModel.pendingWaypoints))
+        self.master.mav.mission_count_send(self.master.target_system, mavutil.mavlink.MAV_COMP_ID_MISSIONPLANNER, 1+len(self.spabModel.pendingWaypoints))
 
     def getWaypoints(self):
         self.master.mav.mission_request_list_send(self.master.target_system, mavutil.mavlink.MAV_COMP_ID_MISSIONPLANNER)
@@ -62,10 +62,6 @@ class MavlinkManager:
                     msg.relative_alt, msg.vx, msg.vz, msg.hdg)
         self.spabModel.LastLocation = dict(zip(('timestamp', 'latitude', 'longitude', 'temperature', 'salinity'), gps_data[0:3]+(0, 0)))
 
-    def handle_mission_request(self, msg):
-        print(msg)
-        self.append_waypoint(msg.seq, 0.0, 15.0, 0)
-
     def handle_mission_ack(self, msg):
         print(msg)
         if msg.type != mavutil.mavlink.MAV_MISSION_ACCEPTED:
@@ -95,17 +91,18 @@ class MavlinkManager:
         else:
             self.master.mav.mission_ack_send(self.master.target_system, mavutil.mavlink.MAV_COMP_ID_ALL, mavutil.mavlink.MAV_MISSION_ACCEPTED)
 
-    def append_waypoint(self, seq, hold_time, acceptance_radius, pass_radius):
+    def handle_mission_request(self, msg):
+        print(msg)
         print("appending waypoints")
-        print(seq)
-        if seq == 0:
+        print(msg.seq)
+        if msg.seq == 0:
             waypoint = self.spabModel.Home
         else:
-            waypoint = self.spabModel.pendingWaypoints[seq]
+            waypoint = self.spabModel.pendingWaypoints[msg.seq-1]
         print(waypoint)
         self.master.mav.mission_item_send(self.master.target_system,
                                         mavutil.mavlink.MAV_COMP_ID_ALL,
-                                        seq,
+                                        msg.seq,
                                         mavutil.mavlink.MAV_FRAME_GLOBAL,
                                         mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 1, 1,
                                         1.0, 15.0, 0.0,
