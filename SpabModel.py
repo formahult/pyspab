@@ -1,4 +1,4 @@
-#!/bin/python3
+#!/usr/bin/python3
 class SpabModel:
 
     def __init__(self):
