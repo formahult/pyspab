@@ -13,3 +13,10 @@ Add `dtoverlay=pi3-disable-bt` and `enable_uart=1` to the end of /boot/config.tx
 
 ## disable linux console on GPIO pins
 By default the linux console is attached to the GPIO pins. This will prevent the UART from being used for other things. To disable this remove `console=serial0,115200` from `/boot/cmdline.txt`
+
+## Running at startup
+In order to run immediately at startup and to maintain reliability a shell script (spab.sh) is used. If the python process dies, the shell script will restart the process.
+
+Run `crontab -e` follow the prompts and insert the task `@reboot /home/pi/spab.sh`. This will cause cron to start the watchdog script when the pi reboots.
+
+The shell script redirects output to `/tmp/spab.log`. If you need to read the output for any purpose `tail -f /tmp/spab.log`.
