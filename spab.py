@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python3 -u
 import sys
 import signal
 import os
@@ -21,12 +21,11 @@ Waypoints = []
 
 
 def read_loop(m):
-    global stat
     while True:
         task.run(blocking=False)
         msg = m.recv_match(blocking=False)
         if not msg:
-            continue
+           continue
         msg_type = msg.get_type()
         try:
             Delegates[msg_type](msg)
@@ -37,7 +36,9 @@ def read_loop(m):
 
 def catch(sig, frame):
     print("\r")
-    os._exit(0)
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(1)
 
 
 def main():
@@ -48,6 +49,7 @@ def main():
     parser.add_option("--rate", dest="rate", default=4, type='int', help='requested stream rate')
     parser.add_option("--source-system", dest="SOURCE_SYSTEM", type='int', default=255, help="MAVLink source system for this GCS")
     parser.add_option("--showmessages", dest="showmessages", action='store_true', help="show incoming messages", default=False)
+    parser.add_option("--logfile", dest="log", default=None, help="name of logfile")
     (opts, args) = parser.parse_args()
     if opts.device is None or opts.mport is None:
         print("You must specify a mavlink device and a modem device")
@@ -62,6 +64,13 @@ def main():
     telemManager = TelemManager.TelemManager(task, spabModel, modem, telemPeriod)
     mavlinkManager = MavlinkManager.MavlinkManager(task, spabModel, telemPeriod, master)
 
+
+    if opts.log is not None:
+        logFile = open(opts.log, "a")
+        sys.stderr = logFile
+        sys.stdout = logFile 
+
+    print("====PYSPAB====\r")
     # init delegates
     global Delegates
     Delegates = {
