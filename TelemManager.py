@@ -49,6 +49,7 @@ class TelemManager:
 
     def HandleReceipt(self, sender, earg):
         s = earg.decode("utf-8")
+        print(s)
         # deal with http headers
         lines = s.splitlines()
         if(lines[0] == "HTTP/1.1 200 OK"):
