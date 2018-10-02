@@ -31,7 +31,8 @@ def read_loop(m):
             Delegates[msg_type](msg)
         except KeyError:
             pass
-        # time.sleep(0.05)
+        # careful with delay, too long will miss msgs
+        time.sleep(0.001)
 
 
 def catch(sig, frame):
@@ -83,7 +84,8 @@ def main():
         "RC_CHANNELS_RAW": mavlinkManager.handle_rc_raw,
         "BAD_DATA": mavlinkManager.handle_bad_data,
         "MISSION_COUNT": mavlinkManager.handle_mission_count,
-        "MISSION_ITEM": mavlinkManager.handle_mission_item
+        "MISSION_ITEM": mavlinkManager.handle_mission_item,
+        "MISSION_CURRENT": mavlinkManager.handle_mission_current
     }
 
     # set to run

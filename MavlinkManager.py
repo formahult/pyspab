@@ -84,11 +84,17 @@ class MavlinkManager:
             if(self.Seq == 0):
                 self.spabModel.Home = (msg.x, msg.y)
             else:
-                self.spabModel.Waypoints[msg.seq-1] = (msg.x, msg.y)
+                self.spabModel.Waypoints.append((msg.x, msg.y))
             self.master.mav.mission_request_send(self.master.target_system, mavutil.mavlink.MAV_COMP_ID_ALL, self.Seq)
             self.Seq += 1
         else:
             self.master.mav.mission_ack_send(self.master.target_system, mavutil.mavlink.MAV_COMP_ID_ALL, mavutil.mavlink.MAV_MISSION_ACCEPTED)
+            self.master.mav.mission_current_send(self.master.target_system, mavutil.mavlink.MAV_COMP_ID_ALL, 1) # start misson at MavPt 1
+
+
+    def handle_mission_current(self, msg):
+	print("starting at WP " + str(msg.seq))
+
 
     def handle_mission_request(self, msg):
         print(msg)

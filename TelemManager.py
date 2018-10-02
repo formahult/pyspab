@@ -13,16 +13,17 @@ class TelemManager:
 
     def remoteTelemetry(self):
         print('remote telemetry')
-        body = json.dumps(list(self.spabModel.LastLocation))
+        body = json.dumps(self.spabModel.LastLocation)
         length = len(body)
         req = """POST /spab/data.cgi HTTP/1.1
-    Host: therevproject.com
-    Accept: */*
-    Connection: close
-    content-type: application/json
-    Content-Length: """
+Host: therevproject.com
+Accept: */*
+Connection: close
+Content-type: application/json
+Content-Length: """
         req += str(length) + "\n\n"
         req += body + "\r\n\r\n"
+        print(req)
         self.modem.send(req)
         self.task.enter(self.PollingPeriod, 1, self.requestCommands, ())
 

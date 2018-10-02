@@ -2,7 +2,7 @@
 class SpabModel:
 
     def __init__(self):
-        self.Waypoints = [()]
+        self.Waypoints = []
         self.pendingWaypoints = []
         self.Home = ()
         self.LastLocation = {}
