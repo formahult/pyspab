@@ -68,6 +68,8 @@ class MavlinkManager:
             print("mission upload failed")
         else:
             print("mission upload success")
+            self.master.mav.mission_current_send(1) # start misson at MavPt 1
+            self.master.mav.command_long_send(self.master.target_system, mavutil.mavlink.MAV_COMP_ID_ALL, mavutil.mavlink.MAV_CMD_DO_SET_MODE, mavutil.mavlink.MAV_MODE_GUIDED_ARMED,0,0,0,0,0,0,0)
             self.spabModel.pendingWaypoints.clear()
             self.Count = 0
             self.Seq = 0
@@ -89,11 +91,9 @@ class MavlinkManager:
             self.Seq += 1
         else:
             self.master.mav.mission_ack_send(self.master.target_system, mavutil.mavlink.MAV_COMP_ID_ALL, mavutil.mavlink.MAV_MISSION_ACCEPTED)
-            self.master.mav.mission_current_send(self.master.target_system, mavutil.mavlink.MAV_COMP_ID_ALL, 1) # start misson at MavPt 1
-
 
     def handle_mission_current(self, msg):
-	print("starting at WP " + str(msg.seq))
+        print("starting at WP " + str(msg.seq))
 
 
     def handle_mission_request(self, msg):

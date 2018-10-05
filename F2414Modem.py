@@ -43,8 +43,7 @@ class F2414Modem:
 
     def __del__(self):
         self.die = True
-        self.thread.join()
-
+        
     __iadd__ = subscribe
     __isub__ = unsubscribe
     __call__ = __DataReceived

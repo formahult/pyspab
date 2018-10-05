@@ -25,7 +25,7 @@ def read_loop(m):
         task.run(blocking=False)
         msg = m.recv_match(blocking=False)
         if not msg:
-           continue
+            continue
         msg_type = msg.get_type()
         try:
             Delegates[msg_type](msg)
@@ -59,18 +59,19 @@ def main():
     signal.signal(signal.SIGINT, catch)
 
     # init objects
-    master = mavutil.mavlink_connection(opts.device, baud=opts.baudrate)
-    modem = F2414Modem.F2414Modem(opts.mport, opts.baudrate)
-    spabModel = SpabModel.SpabModel()
-    telemManager = TelemManager.TelemManager(task, spabModel, modem, telemPeriod)
-    mavlinkManager = MavlinkManager.MavlinkManager(task, spabModel, telemPeriod, master)
-
-
+    try:
+        master = mavutil.mavlink_connection(opts.device, baud=opts.baudrate)
+        modem = F2414Modem.F2414Modem(opts.mport, opts.baudrate)
+        spabModel = SpabModel.SpabModel()
+        telemManager = TelemManager.TelemManager(task, spabModel, modem, telemPeriod)
+        mavlinkManager = MavlinkManager.MavlinkManager(task, spabModel, telemPeriod, master)
+    except:
+        print('failed to find devices')
+        sys.exit(1)
     if opts.log is not None:
         logFile = open(opts.log, "a")
         sys.stderr = logFile
-        sys.stdout = logFile 
-
+        sys.stdout = logFile
     print("====PYSPAB====\r")
     # init delegates
     global Delegates
@@ -84,8 +85,8 @@ def main():
         "RC_CHANNELS_RAW": mavlinkManager.handle_rc_raw,
         "BAD_DATA": mavlinkManager.handle_bad_data,
         "MISSION_COUNT": mavlinkManager.handle_mission_count,
-        "MISSION_ITEM": mavlinkManager.handle_mission_item,
-        "MISSION_CURRENT": mavlinkManager.handle_mission_current
+        "MISSION_ITEM": mavlinkManager.handle_mission_item
+        #"MISSION_CURRENT": mavlinkManager.handle_mission_current
     }
 
     # set to run

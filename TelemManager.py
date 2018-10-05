@@ -35,7 +35,7 @@ Content-Length: """
         self.task.enter(self.PollingPeriod, 1, self.remoteTelemetry, ())
 
     def HandleTelemAck(self, json):
-        print(json[1]["message"])
+        print(json[0]["message"])
 
     def HandleCommand(self, cmdList):
         print('handling commands')
