@@ -6,6 +6,7 @@ import os
 class F2414Modem:
 
     def send(self, data):
+        """ Send string to remote server """
         self.sport.write(b'don')
         time.sleep(1)
         self.sport.write(bytearray(data, encoding='utf-8'))
@@ -31,6 +32,7 @@ class F2414Modem:
                self.__DataReceived(self, earg=data)
 
     def __init__(self, port, baudrate):
+        """ Create the monitor by specifying serial port and baudrate """
         ser = serial.Serial(port)
         self.die = False
         self.blocksize = 1024
