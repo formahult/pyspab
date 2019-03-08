@@ -27,6 +27,7 @@ def read_loop(m):
         if not msg:
             continue
         msg_type = msg.get_type()
+        #print(msg_type)
         try:
             Delegates[msg_type](msg)
         except KeyError:
@@ -88,15 +89,17 @@ def main():
         "MISSION_ITEM": mavlinkManager.handle_mission_item
         #"MISSION_CURRENT": mavlinkManager.handle_mission_current
     }
-
+    print("Spab Initialised")
     # set to run
-    master.wait_heartbeat()
+    #master.wait_heartbeat()
+    #print("heartbeat received")
     master.mav.request_data_stream_send(master.target_system, master.target_component,
                                         mavutil.mavlink.MAV_DATA_STREAM_ALL, opts.rate, 1)
     master.mav.set_mode_send(master.target_system, 216, 216)
     telemManager.start()
     mavlinkManager.start()
     task.run(False)
+    print("Entering Read Loop")
     read_loop(master)
 
 
