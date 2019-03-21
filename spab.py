@@ -13,6 +13,7 @@ import MavlinkManager
 import SpabModel
 
 
+
 task = sched.scheduler(time.time, time.sleep)
 telemPeriod = 30   # seconds
 Locations = collections.deque(maxlen=10)    # circular buffer to limit memory use
@@ -43,6 +44,7 @@ def catch(sig, frame):
 
 
 def main():
+    print("starting")
     parser = OptionParser("spab.py [options]")
     parser.add_option("--baudrate", dest="baudrate", type='int', help='master port baud rate', default=57600)
     parser.add_option("--device", dest="device", default=None, help="serial device")
