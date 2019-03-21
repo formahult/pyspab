@@ -15,8 +15,8 @@ class TelemManager:
         print('remote telemetry')
         body = json.dumps(self.spabModel.LastLocation)
         length = len(body)
-        req = """POST /spab/data.cgi HTTP/1.1
-Host: therevproject.com
+        req = """POST /api/data HTTP/1.1
+Host: spab.tech
 Accept: */*
 Connection: close
 Content-type: application/json
@@ -30,7 +30,7 @@ Content-Length: """
     def requestCommands(self):
         print('request commands')
         """Requests new commands JSON from control server and registers a callback handler"""
-        req = "GET http://therevproject.com/spab/requestCommands.cgi\r\n\r\n"
+        req = "GET http://spab.tech/api/command\r\n\r\n"
         self.modem.send(req)
         self.task.enter(self.PollingPeriod, 1, self.remoteTelemetry, ())
 
@@ -45,7 +45,8 @@ Content-Length: """
                 continue
             print(elem["action"])
             self.AcceptedCommands.append(elem["taskId"])
-            self.spabModel.pendingWaypoints.append((float(elem["latitude"]), float(elem["longitude"])))
+            self.spabModel.pendingWaypoints.append(
+                (float(elem["latitude"]), float(elem["longitude"])))
         print(self.spabModel.Waypoints)
 
     def HandleReceipt(self, sender, earg):
