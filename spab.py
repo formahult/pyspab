@@ -70,7 +70,7 @@ def main():
     # init objects
     try:
         master = mavutil.mavlink_connection(opts.device, baud=opts.baudrate)
-        modem = F2414Modem.F2414Modem(opts.mport, opts.baudrate)
+        modem = F2414Modem.F2414Modem(opts.mport, baudrate=opts.baudrate)
         spabModel = SpabModel.SpabModel()
         telemManager = TelemManager.TelemManager(
             task, spabModel, modem, telemPeriod)
@@ -101,7 +101,7 @@ def main():
     }
 
     # set to run
-    # master.wait_heartbeat()
+    master.wait_heartbeat()
     master.mav.request_data_stream_send(master.target_system, master.target_component,
                                         mavutil.mavlink.MAV_DATA_STREAM_ALL, opts.rate, 1)
     master.mav.set_mode_send(master.target_system, 216, 216)
