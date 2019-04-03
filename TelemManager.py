@@ -55,6 +55,7 @@ Content-Length: """
 
     def HandleReceipt(self, sender, earg):
         print("handle receipt")
+        print(earg)
         s = earg.decode("utf-8")
         print(s)
         # deal with http headers
