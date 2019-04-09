@@ -13,12 +13,12 @@ class TelemManager:
         self.AcceptedCommands = collections.deque(maxlen=10)
 
     def remoteTelemetry(self):
-        print('remote telemetry')
+        #print('remote telemetry')
         #self.spabModel.LastLocation = dict(zip(
         #    ('timestamp', 'latitude', 'longitude', 'temperature', 'salinity'),  ("0", 111, 66) + (0, 0)))
         body = json.dumps(self.spabModel.LastLocation)
         length = len(body)
-        req = """POST /solarboat/api/data.cgi HTTP/1.1
+        req = """POST /spab/data.cgi HTTP/1.1
 Host: therevproject.com
 Accept: */*
 Connection: close
@@ -31,9 +31,10 @@ Content-Length: """
         self.task.enter(self.PollingPeriod, 1, self.requestCommands, ())
 
     def requestCommands(self):
-        print('request commands')
+        #print('request commands')
         """Requests new commands JSON from control server and registers a callback handler"""
-        req = "GET http://revproject.com/solarboat/test.txt\r\n\r\n"
+        req = "GET http://therevproject.com/spab/requestCommands.cgi\r\n\r\n"
+        print(req)
         self.modem.send(req)
         self.task.enter(self.PollingPeriod, 1, self.remoteTelemetry, ())
 
