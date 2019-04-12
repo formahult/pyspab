@@ -89,7 +89,7 @@ class MavlinkManager:
     def handle_mission_count(self, msg):
         self.Count = msg.count
         self.Seq = 0
-        print(str(self.Count) + " waypoints")
+        #print(str(self.Count) + " waypoints")
         self.master.mav.mission_request_send(
             self.master.target_system, mavutil.mavlink.MAV_COMP_ID_ALL, self.Seq)
 
